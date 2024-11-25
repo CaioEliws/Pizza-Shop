@@ -6,7 +6,7 @@ import { z } from 'zod'
 
 import {
   getManagedRestaurant,
-  getManagedRestaurantResponse,
+  GetManagedRestaurantResponse,
 } from '@/api/get-managed-restaurant'
 import { updateProfile } from '@/api/update-profile'
 
@@ -51,16 +51,30 @@ export function StoreProfileDialog() {
     },
   })
 
+  const { mutateAsync: updateProfileFn } = useMutation({
+    mutationFn: updateProfile,
+    onMutate({ description, name }) {
+      const { cached } = updateManagedRestaurantCache({ description, name })
+
+      return { previousProfile: cached }
+    },
+    onError(_, __, context) {
+      if (context?.previousProfile) {
+        updateManagedRestaurantCache(context.previousProfile)
+      }
+    },
+  })
+
   function updateManagedRestaurantCache({
     name,
     description,
   }: StoreProfileSchema) {
-    const cached = queryClient.getQueryData<getManagedRestaurantResponse>([
+    const cached = queryClient.getQueryData<GetManagedRestaurantResponse>([
       'managed-restaurant',
     ])
 
     if (cached) {
-      queryClient.setQueryData<getManagedRestaurantResponse>(
+      queryClient.setQueryData<GetManagedRestaurantResponse>(
         ['managed-restaurant'],
         {
           ...cached,
@@ -73,20 +87,6 @@ export function StoreProfileDialog() {
     return { cached }
   }
 
-  const { mutateAsync: updateProfileFn } = useMutation({
-    mutationFn: updateProfile,
-    onMutate({ name, description }) {
-      const { cached } = updateManagedRestaurantCache({ name, description })
-
-      return { previousProfile: cached }
-    },
-    onError(_, __, context) {
-      if (context?.previousProfile) {
-        updateManagedRestaurantCache(context.previousProfile)
-      }
-    },
-  })
-
   async function handleUpdateProfile(data: StoreProfileSchema) {
     try {
       await updateProfileFn({
@@ -96,7 +96,7 @@ export function StoreProfileDialog() {
 
       toast.success('Perfil atualizado com sucesso!')
     } catch {
-      toast.error('Falha ao atualizar o perfil, tente novamente!')
+      toast.error('Falha ao atualizar o perfil, tente novamente')
     }
   }
 
@@ -105,8 +105,7 @@ export function StoreProfileDialog() {
       <DialogHeader>
         <DialogTitle>Perfil da loja</DialogTitle>
         <DialogDescription>
-          Atualize as informações do seu estabelecimento visíveis ao seu
-          clientes
+          Atualize as informações do seu estabelecimento visíveis ao seu cliente
         </DialogDescription>
       </DialogHeader>
 
@@ -116,7 +115,6 @@ export function StoreProfileDialog() {
             <Label className="text-right" htmlFor="name">
               Nome
             </Label>
-
             <Input className="col-span-3" id="name" {...register('name')} />
           </div>
 
@@ -124,9 +122,8 @@ export function StoreProfileDialog() {
             <Label className="text-right" htmlFor="description">
               Descrição
             </Label>
-
             <Textarea
-              className="col-span-3 resize-none"
+              className="col-span-3"
               id="description"
               {...register('description')}
             />
@@ -139,8 +136,7 @@ export function StoreProfileDialog() {
               Cancelar
             </Button>
           </DialogClose>
-
-          <Button type="submit" variant="sucess" disabled={isSubmitting}>
+          <Button type="submit" variant="success" disabled={isSubmitting}>
             Salvar
           </Button>
         </DialogFooter>
